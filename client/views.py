@@ -15,13 +15,19 @@ class ClientCreateView(LoginRequiredMixin, CreateView):
     form_class = ClientForm
     success_url = reverse_lazy('client:client_list')
 
-
+    def form_valid(self, form):
+        self.object = form.save()
+        self.object.owner = self.request.user
+        self.object.save()
+        return super().form_valid(form)
 class ClientListView(LoginRequiredMixin, ListView):
     """Вывод списка получатеелй рассылки"""
     model = MailingClient
     template_name = 'client/сlient_list.html'
     paginate_by = 6
 
+    def get_queryset(self):
+        return super().get_queryset().filter(owner=self.request.user)
 
 class ClientsDetailView(LoginRequiredMixin, DetailView):
     """Получение детальной информации по получателю рассылки"""
@@ -30,6 +36,8 @@ class ClientsDetailView(LoginRequiredMixin, DetailView):
     context_object_name = 'item'
     pk_url_kwarg = 'pk'
 
+    def get_queryset(self):
+        return super().get_queryset().filter(owner=self.request.user)
 
 class ClientDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     """Удаление получателя рассылки"""
@@ -40,6 +48,8 @@ class ClientDeleteView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
     template_name = 'client/delete_client.html'
     success_url = reverse_lazy('client:client_list')
 
+    def get_queryset(self):
+        return super().get_queryset().filter(owner=self.request.user)
 
 class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     """Изменение данных получателя рассылки"""
@@ -49,6 +59,9 @@ class ClientUpdateView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
     login_url = 'users:login'
     redirect_field_name = 'redirect_to'
     template_name = 'client/update_form.html'
+
+    def get_queryset(self):
+        return super().get_queryset().filter(owner=self.request.user)
 
     def get_success_url(self) -> str:
         """Изменение url (заглушка)"""

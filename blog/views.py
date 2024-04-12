@@ -5,6 +5,7 @@ from django.views.generic import ListView, DetailView, CreateView, DeleteView, U
 from blog.forms import BlogPostForm
 from blog.models import BlogPost
 from blog.utils import get_cached_for_blog_list
+from django.core.exceptions import PermissionDenied
 
 
 # from blog.services import cached_for_blog
@@ -69,7 +70,7 @@ class BlogUpdateView(LoginRequiredMixin, UpdateView):
         """проверка что редактирование доступно владельцу или модератору или root"""
         self.object = self.get_object()
         if self.object.user != self.request.user and not self.request.user.is_staff and not self.request.user.is_superuser:
-            raise Http404("Вы не являетесь владельцем этого продукта.")
+            raise PermissionDenied("Вы не являетесь владельцем этого продукта.")
 
         return super().dispatch(request, *args, **kwargs)
 
@@ -88,6 +89,6 @@ class BlogDeleteView(LoginRequiredMixin, DeleteView):
         """проверка что редактирование доступно владельцу или модератору или root"""
         self.object = self.get_object()
         if self.object.user != self.request.user and not self.request.user.is_staff and not self.request.user.is_superuser:
-            raise Http404("Вы не являетесь владельцем этого продукта.")
+            raise PermissionDenied("Вы не являетесь владельцем этого продукта.")
 
         return super().dispatch(request, *args, **kwargs)

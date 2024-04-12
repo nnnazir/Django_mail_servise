@@ -58,7 +58,7 @@ class Mail(models.Model):
 
 class MailingTry(models.Model):
     '''Логи рассылки'''
-    mailing = models.ForeignKey(MailingSettings, on_delete=models.CASCADE)
+    mailing = models.ForeignKey(MailingSettings, on_delete=models.SET_NULL, null=True, blank=True)
     mailing_try = models.DateTimeField(auto_now=True, verbose_name='дата и время последней попытки')
     mailing_try_status = models.CharField(max_length=255, verbose_name='статус рассылки', **NULLABLE)
     mailing_response = models.CharField(max_length=255, verbose_name='ответ почтового сервера', **NULLABLE)

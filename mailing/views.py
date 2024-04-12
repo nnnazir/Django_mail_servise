@@ -53,13 +53,7 @@ class MailingCreateView(LoginRequiredMixin, CreateView):
 
         return context_data
 
-    def form_valid(self, form):
-        '''Функция для валидации формы, получения данных и их обработки'''
-        data = self.get_context_data()
-        self.object = form.save()
-        self.object.author = self.request.user
-        self.object.save()
-        formset = data['formset']
+    def procces_formset(self, formset):
         client_email = []
         mailing_subject = ''
         mailing_body = ''
@@ -73,6 +67,33 @@ class MailingCreateView(LoginRequiredMixin, CreateView):
                 all_clients = fo.cleaned_data.get('all_clients')
                 if all_clients:
                     client_email = list(MailingClient.objects.all().values_list('contact_email', flat=True))
+        return {"client_email":client_email, "mailing_subject":mailing_subject, "mailing_body": mailing_body}
+
+    def send_mails(self, formset_data):
+        sending = send_mail(formset_data["mailing_subject"], formset_data["mailing_body"], settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=formset_data["client_email"],
+                            fail_silently=False)
+        if sending == 1:
+            self.mail_status = 'OK'
+        else:
+            self.mail_status = 'Не отправлено'
+
+    def set_mailing_status(self):
+        if self.object.mailing_periods in ["DL", "WL", "ML"]:
+            period_map = {"DL": 1, "WL": 6, "ML": 30}
+            period_days = period_map.get(self.object.mailing_periods)
+            if (self.object.mailing_time_end - self.object.mailing_time_start) <= timedelta(days=period_days):
+                self.object.mailing_status = 'FI'
+                self.object.save()
+
+    def form_valid(self, form):
+        '''Функция для валидации формы, получения данных и их обработки'''
+        data = self.get_context_data()
+        self.object = form.save()
+        self.object.author = self.request.user
+        self.object.save()
+        formset = data['formset']
+        formset_data = self.procces_formset(formset)
         if form.is_valid():
             mailing = form.save(commit=False)
             mailing.mailing_status = "AC"
@@ -86,30 +107,8 @@ class MailingCreateView(LoginRequiredMixin, CreateView):
         '''Тут сверяется время рассылки и если она истекла, то она отключается'''
         try:
             if self.object.mailing_time_start.timestamp() <= ct.timestamp() <= self.object.mailing_time_end.timestamp():
-                sending = send_mail(mailing_subject, mailing_body, settings.DEFAULT_FROM_EMAIL,
-                                    recipient_list=client_email,
-                                    fail_silently=False)
-                if sending == 1:
-                    self.mail_status = 'OK'
-                else:
-                    self.mail_status = 'Не отправлено'
-
-            if (self.object.mailing_periods == "DL") and ((
-                                                                  self.object.mailing_time_end - self.object.mailing_time_start) <= timedelta(
-                days=1)):
-                self.object.mailing_status = 'FI'
-                self.object.save()
-            elif (self.object.mailing_periods == "WL") and ((
-                                                                    self.object.mailing_time_end - self.object.mailing_time_start) <= timedelta(
-                days=6)):
-                self.object.mailing_status = 'FI'
-                self.object.save()
-            elif (self.object.mailing_periods == "ML") and ((
-                                                                    self.object.mailing_time_end - self.object.mailing_time_start) <= timedelta(
-                days=30)):
-                self.object.mailing_status = 'FI'
-                self.object.save()
-
+                self.send_mails(formset_data)
+            self.set_mailing_status()
             MailingTry.objects.create(mailing=self.object, mailing_try=datetime.now(),
                                       mailing_try_status=self.object.mailing_status,
                                       mailing_response=self.mail_status)
